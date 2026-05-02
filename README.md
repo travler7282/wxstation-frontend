@@ -12,5 +12,4 @@ Vue 3 + Vite frontend for the WXStation weather monitor.
 - `npm run preview` - preview production build locally
 
 ## Deployment
-This app is deployed under the `/wxstation/` route by the repository deployment workflows.
-# wxstation-frontend
+This app is deployed under the `/apps/wxstation/` route by the repository deployment workflows.
