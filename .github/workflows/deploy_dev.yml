@@ -1,0 +1,54 @@
+name: Deploy WXStation to Dev S3
+
+on:
+  push:
+    branches: [dev]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  NODE_VERSION: "24"
+  DEPLOY_PREFIX: apps/wxstation
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Stage deployment bundle
+        run: |
+          mkdir -p deploy/${{ env.DEPLOY_PREFIX }}
+          cp -r dist/. deploy/${{ env.DEPLOY_PREFIX }}/
+          test -f deploy/${{ env.DEPLOY_PREFIX }}/index.html
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEV_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Upload static assets
+        run: aws s3 sync deploy/${{ env.DEPLOY_PREFIX }} s3://${{ secrets.AWS_DEV_BUCKET_NAME }}/${{ env.DEPLOY_PREFIX }}/ --delete
+
+      - name: Invalidate CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id ${{ secrets.AWS_DEV_CLOUDFRONT_ID }} --paths "/${{ env.DEPLOY_PREFIX }}/*"
